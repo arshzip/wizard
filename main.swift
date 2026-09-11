@@ -1597,6 +1597,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         }
         resetBtn?.isHidden = !isBuiltinOverridden
         saveBtn?.title = isNew ? "Add preset" : "Save"
+        // "Add preset" needs a wider button than "Save" — resize and keep
+        // it right-aligned so it never truncates or overlaps Reset.
+        if let save = saveBtn, let parent = save.superview {
+            let w = parent.bounds.width
+            let saveW: CGFloat = isNew ? 104 : 68
+            save.frame = NSRect(x: w - 24 - saveW, y: 24, width: saveW, height: 26)
+        }
     }
 
     func syncPreview() {
