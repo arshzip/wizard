@@ -340,7 +340,8 @@ func detailText(for params: [String: Any]) -> String {
         parts.append(scenePreset(id: sc)?.name ?? "scene \(sc)")
     }
     if let t = params["temp"] as? Int { parts.append("\(t) K") }
-    if let d = params["dimming"] as? Int { parts.append("\(d)%") }
+    // Scenes always run at 100% — showing it is just noise.
+    if params["sceneId"] == nil, let d = params["dimming"] as? Int { parts.append("\(d)%") }
     return parts.joined(separator: " · ")
 }
 
