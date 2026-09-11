@@ -28,7 +28,12 @@ cd wizard
 
 The script compiles the app, signs it, and installs it to `/Applications`. Launch WiZard and it finds your bulb on the network.
 
-Some Command Line Tools versions ship a broken Swift module map. The build script detects it and applies a workaround, so you don't need sudo or a full Xcode install.
+> [!NOTE]
+> macOS may refuse to open WiZard since it isn't notarized. Bypass Gatekeeper with:
+>
+> ```console
+> xattr -d com.apple.quarantine /Applications/WiZard.app
+> ```
 
 ## How it works
 WiZ bulbs listen for JSON on UDP port 38899. WiZard sends `getPilot` to read the state and `setPilot` to change it. Discovery sends a broadcast first, then sweeps the subnet if the broadcast gets dropped.
