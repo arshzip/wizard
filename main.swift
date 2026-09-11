@@ -1068,6 +1068,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
     var colorWell: NSColorWell!
     var brightSlider: NSSlider!
     var brightLabel: NSTextField!
+    var brightTitleLabel: NSTextField!
     var revertBtn: NSButton!
     var deleteBtn: NSButton!
     var saveBtn: NSButton!
@@ -1297,6 +1298,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         v.addSubview(scenePopup)
 
         let brightTitle = NSTextField(labelWithString: "Brightness")
+        brightTitleLabel = brightTitle
         brightTitle.font = .systemFont(ofSize: 11)
         brightTitle.textColor = .secondaryLabelColor
         brightTitle.frame = NSRect(x: 24, y: 63, width: 70, height: 14)
@@ -1338,7 +1340,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
     func buildScenesTab(frame: NSRect) -> NSView {
         let v = NSView(frame: frame)
         let m: CGFloat = 12
-        let hint = NSTextField(labelWithString: "Click a WiZ scene to preview it · + adds it to the menu")
+        let hint = NSTextField(labelWithString: "Click to preview · + adds · click an added scene to remove it")
         hint.font = .systemFont(ofSize: 10.5)
         hint.textColor = .secondaryLabelColor
         hint.frame = NSRect(x: m, y: frame.height - 22, width: frame.width - 2 * m, height: 14)
@@ -1409,7 +1411,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
     /// Build setPilot params (without "state") from the state being edited.
     func workingParams() -> [String: Any]? {
         guard let w = working else { return nil }
-        var p: [String: Any] = ["dimming": w.dimming]
+        // Scenes always run at full brightness.
+        let dim = (w.kind == 2) ? 100 : w.dimming
+        var p: [String: Any] = ["dimming": dim]
         switch w.kind {
         case 1:
             guard let c = w.color.usingColorSpace(.deviceRGB) else { return nil }
@@ -1512,6 +1516,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         if p["sceneId"] != nil {
             w.kind = 2
             w.sceneId = p["sceneId"] as? Int
+            w.dimming = 100  // scenes always run at full brightness
         } else if p["r"] != nil {
             w.kind = 1
             w.color = rgbColor(from: p) ?? .systemOrange
@@ -1552,6 +1557,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
     }
 
     func storedParams(from w: WorkingState) -> [String: Any] {
+        // Scenes always run at full brightness.
+        let dim = (w.kind == 2) ? 100 : w.dimming
         var stored: [String: Any]
         switch w.kind {
         case 1:
@@ -1560,7 +1567,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
                       "g": Int(round(c.greenComponent * 255)),
                       "b": Int(round(c.blueComponent * 255)), "dimming": w.dimming]
         case 2:
-            stored = ["sceneId": w.sceneId ?? 14, "dimming": w.dimming]
+            stored = ["sceneId": w.sceneId ?? 14, "dimming": dim]
         default:
             stored = ["temp": w.temp, "dimming": w.dimming]
         }
@@ -1588,8 +1595,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
            let idx = SCENE_PRESETS.firstIndex(where: { $0.id == id }) {
             scenePopup?.selectItem(at: idx)
         }
-        brightSlider?.integerValue = w.dimming
-        brightLabel?.stringValue = "\(w.dimming)%"
+        brightSlider?.integerValue = (w.kind == 2) ? 100 : w.dimming
+        brightLabel?.stringValue = (w.kind == 2) ? "100%" : "\(w.dimming)%"
         updateEditorVisibility()
     }
 
@@ -1600,6 +1607,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         colorWell?.isHidden = kind != 1
         scenePopup?.isHidden = kind != 2
         kindSeg?.isHidden = working == nil
+        // Scenes always run at full brightness — no slider.
+        let isScene = (working?.kind ?? 0) == 2
+        if isScene { working?.dimming = 100 }
+        brightTitleLabel?.isHidden = isScene
+        brightSlider?.isHidden = isScene
+        brightLabel?.isHidden = isScene
         var isNew = false
         if let w = working, case .new = w.target { isNew = true }
         saveBtn?.title = isNew ? "Add preset" : "Save"
@@ -1837,6 +1850,53 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         return preset.id == 14 && !(cfg["hiddenBuiltin"] as? [String] ?? []).contains("night")
     }
 
+    /// Remove a scene from the menu (toggle-off). Drops matching customs and,
+    /// for Night light, hides the builtin when no custom covers it anymore.
+    /// Editor selection is shifted past the removed rows so it stays valid.
+    func removeScenePreset(_ preset: ScenePreset) {
+        let removed = customs.indices.filter {
+            (customs[$0]["params"] as? [String: Any])?["sceneId"] as? Int == preset.id
+        }
+        for i in removed.reversed() { customs.remove(at: i) }
+        if preset.id == 14 {
+            var h = cfg["hiddenBuiltin"] as? [String] ?? []
+            if !h.contains("night") { h.append("night") }
+            cfg["hiddenBuiltin"] = h
+        }
+        saveConfig(cfg)
+        if let sel = selectedStateId {
+            if sel.hasPrefix("custom:"), let n = Int(sel.dropFirst("custom:".count)) {
+                if removed.contains(n) {
+                    selectedStateId = nil
+                } else {
+                    selectedStateId = "custom:\(n - removed.filter { $0 < n }.count)"
+                }
+            } else if sel == "builtin:night", preset.id == 14 {
+                selectedStateId = nil
+            }
+        }
+        // Rebuild the working copy when it pointed at a removed/shifted row.
+        // An unsaved new preset (.new) is left untouched.
+        if let w = working {
+            switch w.target {
+            case .new:
+                break
+            case .custom:
+                if let id = selectedStateId, let s = stateById(id) {
+                    working = makeWorking(from: s)
+                } else {
+                    working = nil
+                }
+            case .builtin(let m):
+                if m == .night, preset.id == 14 {
+                    working = selectedStateId.flatMap { stateById($0) }.map { makeWorking(from: $0) }
+                }
+            }
+        }
+        afterDataChange()
+        if selectedStateId == nil && working == nil { selectFirstState() }
+    }
+
     func reloadScenesList() {
         guard let content = scenesListContent, let scroll = scenesListScroll else { return }
         content.subviews.forEach { $0.removeFromSuperview() }
@@ -1858,10 +1918,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
             let added = sceneIsAdded(preset)
             cell.configure(added: added)
             cell.onPreview = { [self] in
-                preview.show(working: preset.color, isOn: true, dimming: 100)
-                livePreview(params: ["sceneId": preset.id, "dimming": 100])
+                if sceneIsAdded(preset) {
+                    removeScenePreset(preset)
+                } else {
+                    preview.show(working: preset.color, isOn: true, dimming: 100)
+                    livePreview(params: ["sceneId": preset.id, "dimming": 100])
+                }
             }
             cell.onAdd = { [self] in
+                if sceneIsAdded(preset) {
+                    removeScenePreset(preset)
+                    return
+                }
                 customs.append(["name": preset.name,
                                 "params": ["sceneId": preset.id, "dimming": 100]])
                 saveConfig(cfg)
@@ -2170,9 +2238,8 @@ final class SceneCellView: NSView {
 
     private func setAdded(_ added: Bool) {
         self.added = added
-        addButton.title = added ? "✓" : "+"
-        addButton.isEnabled = !added
-        addButton.toolTip = added ? "Already in your presets" : "Add to menu"
+        addButton.title = added ? "–" : "+"
+        addButton.toolTip = added ? "Remove from menu" : "Add to menu"
     }
 
     override func layout() {
@@ -2207,7 +2274,6 @@ final class SceneCellView: NSView {
     }
 
     @objc private func addClicked() {
-        guard !added else { return }
         onAdd?()
     }
 
