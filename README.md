@@ -30,12 +30,6 @@ The script compiles the app, signs it, and installs it to `/Applications`. Launc
 
 Some Command Line Tools versions ship a broken Swift module map. The build script detects it and applies a workaround, so you don't need sudo or a full Xcode install.
 
-## Usage
-Click the menu bar icon:
-- Pick a preset or drag the brightness slider
-- Save as new preset captures the current bulb state (it enables once the bulb shows a look you haven't saved)
-- Preferences (⌘,) opens the preset editor, the WiZ scene library, and bulb management
-
 ## How it works
 WiZ bulbs listen for JSON on UDP port 38899. WiZard sends `getPilot` to read the state and `setPilot` to change it. Discovery sends a broadcast first, then sweeps the subnet if the broadcast gets dropped.
 
