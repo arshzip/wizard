@@ -1,4 +1,6 @@
 # WiZard
+WiZard is an open-source macOS menu bar app for [WiZ](https://www.wizconnected.com/) bulbs. It talks to your bulbs over UDP on your local network. No cloud, no account.
+
 <p float="left">
 
 <img width="35%" alt="Menu bar panel" src="https://github.com/user-attachments/assets/d44d1af6-ddd5-4397-abed-8015348ca796" />
@@ -8,7 +10,7 @@
 </p>
 
 
-WiZard is an open-source macOS menu bar app for [WiZ](https://www.wizconnected.com/) bulbs. It talks to your bulbs over UDP on your local network. No cloud, no account.
+
 
 ## Features
 - Presets in your menu bar: Cool, Warm, Nightlight, plus any preset you create
