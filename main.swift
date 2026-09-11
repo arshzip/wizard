@@ -1297,7 +1297,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
 
         revertBtn = NSButton(title: "Revert", target: self, action: #selector(revertClicked))
         revertBtn.bezelStyle = .rounded
-        revertBtn.frame = NSRect(x: 24, y: 24, width: 80, height: 26)
+        revertBtn.frame = NSRect(x: 24, y: 24, width: 68, height: 26)
         v.addSubview(revertBtn)
 
         deleteBtn = NSButton(title: "Delete", target: self, action: #selector(deleteClicked))
@@ -1307,18 +1307,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
             string: "Delete",
             attributes: [.foregroundColor: NSColor.systemRed,
                          .font: NSFont.systemFont(ofSize: NSFont.systemFontSize)])
-        deleteBtn.frame = NSRect(x: 112, y: 24, width: 80, height: 26)
+        deleteBtn.frame = NSRect(x: 98, y: 24, width: 68, height: 26)
         v.addSubview(deleteBtn)
 
         resetBtn = NSButton(title: "Reset to default", target: self, action: #selector(resetOneClicked))
         resetBtn.bezelStyle = .rounded
-        resetBtn.frame = NSRect(x: 200, y: 24, width: 132, height: 26)
+        resetBtn.frame = NSRect(x: 172, y: 24, width: 126, height: 26)
         v.addSubview(resetBtn)
 
         saveBtn = NSButton(title: "Save", target: self, action: #selector(saveClicked))
         saveBtn.bezelStyle = .rounded
         saveBtn.keyEquivalent = "\r"
-        saveBtn.frame = NSRect(x: w - 24 - 84, y: 24, width: 84, height: 26)
+        saveBtn.frame = NSRect(x: w - 24 - 68, y: 24, width: 68, height: 26)
         v.addSubview(saveBtn)
 
         return v
