@@ -271,7 +271,12 @@ func scenePreset(id: Int) -> ScenePreset? {
 func captureSnapshot(from pilot: [String: Any]?) -> [String: Any]? {
     guard let pilot, (pilot["state"] as? Bool) != false else { return nil }
     var snap: [String: Any] = [:]
-    if let r = pilot["r"] as? Int, let g = pilot["g"] as? Int, let b = pilot["b"] as? Int {
+    // NOTE: pilots keep reporting stale r/g/b (and temp) while in scene mode,
+    // so sceneId must win when non-zero — otherwise a scene look like
+    // Nightlight captures as RGB and never matches the saved preset.
+    if let sc = pilot["sceneId"] as? Int, sc != 0 {
+        snap["sceneId"] = sc
+    } else if let r = pilot["r"] as? Int, let g = pilot["g"] as? Int, let b = pilot["b"] as? Int {
         snap["r"] = r; snap["g"] = g; snap["b"] = b
     } else if let sc = pilot["sceneId"] as? Int, sc != 0 {
         snap["sceneId"] = sc
@@ -282,6 +287,12 @@ func captureSnapshot(from pilot: [String: Any]?) -> [String: Any]? {
     }
     if let d = pilot["dimming"] as? Int { snap["dimming"] = max(10, min(100, d)) }
     return snap
+}
+
+/// True when two param dicts hold the same values (order-independent).
+/// Used to avoid storing a builtin override identical to its default.
+func paramsEqual(_ a: [String: Any], _ b: [String: Any]) -> Bool {
+    (a as NSDictionary).isEqual(to: b)
 }
 
 /// Blend an RGB color toward white (amount 0…1).
@@ -854,8 +865,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
             row.swatch = swatchColor(for: s.params)
             row.swatchIsRing = (id == OFF_ID)
             row.detailText = detailText(for: s.params)
-            let overridden = s.isBuiltin && id != OFF_ID
-                && overrides[String(id.dropFirst("builtin:".count))] != nil
+            var overridden = false
+            if s.isBuiltin, id != OFF_ID,
+               let m = Mode(rawValue: String(id.dropFirst("builtin:".count))),
+               let o = overrides[m.rawValue] {
+                overridden = !paramsEqual(o, m.defaultParams)
+            }
             row.savedDot.isHidden = !overridden
         }
 
@@ -980,12 +995,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
     /// Send dimming, preserving the bulb's current color / temp / scene.
     func sendDimming(_ value: Int) {
         var params: [String: Any] = ["state": true, "dimming": value]
-        if let r = lastPilot?["r"] as? Int, let g = lastPilot?["g"] as? Int, let b = lastPilot?["b"] as? Int {
+        // Same ordering as captureSnapshot: a non-zero sceneId wins over
+        // stale r/g/b the pilot may still carry in scene mode.
+        if let sc = lastPilot?["sceneId"] as? Int, sc != 0 {
+            params["sceneId"] = sc
+        } else if let r = lastPilot?["r"] as? Int, let g = lastPilot?["g"] as? Int, let b = lastPilot?["b"] as? Int {
             params["r"] = r; params["g"] = g; params["b"] = b
         } else if let t = lastPilot?["temp"] as? Int, t != 0 {
             params["temp"] = t
-        } else if let sc = lastPilot?["sceneId"] as? Int, sc != 0 {
-            params["sceneId"] = sc
         }
         var ok = false
         if let ip = bulbIP {
@@ -1053,7 +1070,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
     var brightLabel: NSTextField!
     var revertBtn: NSButton!
     var deleteBtn: NSButton!
-    var resetBtn: NSButton!
     var saveBtn: NSButton!
     var newBtn: NSButton!
     var restoreBtn: NSButton!
@@ -1309,11 +1325,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
                          .font: NSFont.systemFont(ofSize: NSFont.systemFontSize)])
         deleteBtn.frame = NSRect(x: 98, y: 24, width: 68, height: 26)
         v.addSubview(deleteBtn)
-
-        resetBtn = NSButton(title: "Reset to default", target: self, action: #selector(resetOneClicked))
-        resetBtn.bezelStyle = .rounded
-        resetBtn.frame = NSRect(x: 172, y: 24, width: 126, height: 26)
-        v.addSubview(resetBtn)
 
         saveBtn = NSButton(title: "Save", target: self, action: #selector(saveClicked))
         saveBtn.bezelStyle = .rounded
@@ -1589,16 +1600,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         colorWell?.isHidden = kind != 1
         scenePopup?.isHidden = kind != 2
         kindSeg?.isHidden = working == nil
-        var isBuiltinOverridden = false
         var isNew = false
-        if let w = working {
-            if case .builtin(let m) = w.target { isBuiltinOverridden = (overrides[m.rawValue] != nil) }
-            if case .new = w.target { isNew = true }
-        }
-        resetBtn?.isHidden = !isBuiltinOverridden
+        if let w = working, case .new = w.target { isNew = true }
         saveBtn?.title = isNew ? "Add preset" : "Save"
         // "Add preset" needs a wider button than "Save" — resize and keep
-        // it right-aligned so it never truncates or overlaps Reset.
+        // it right-aligned so it never truncates.
         if let save = saveBtn, let parent = save.superview {
             let w = parent.bounds.width
             let saveW: CGFloat = isNew ? 104 : 68
@@ -1763,23 +1769,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         selectFirstState()
     }
 
-    @objc func resetOneClicked() {
-        guard let w = working, case .builtin(let m) = w.target else { return }
-        var o = overrides
-        o.removeValue(forKey: m.rawValue)
-        overrides = o
-        saveConfig(cfg)
-        if let id = selectedStateId, let s = stateById(id) {
-            working = makeWorking(from: s)
-        }
-        afterDataChange()
-    }
-
     @objc func restoreBuiltinsClicked() {
         overrides = [:]
         cfg["hiddenBuiltin"] = [String]()
         saveConfig(cfg)
+        // Defaults changed under the working copy — reload it so the editor
+        // and the live bulb both show the restored values.
+        if let id = selectedStateId, let s = stateById(id) {
+            working = makeWorking(from: s)
+        }
         afterDataChange()
+        previewWorking()
     }
 
     @objc func saveClicked() {
@@ -1798,7 +1798,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
             newSelectedId = "custom:\(i)"
         case .builtin(let m):
             var o = overrides
-            o[m.rawValue] = stored
+            if paramsEqual(stored, m.defaultParams) {
+                o.removeValue(forKey: m.rawValue)  // unchanged = no override
+            } else {
+                o[m.rawValue] = stored
+            }
             overrides = o
             newSelectedId = m.id
         }
