@@ -1186,7 +1186,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         content.addSubview(refreshBtn)
 
         // ---- Right panel: tabs
-        tabSegment = NSSegmentedControl(labels: ["States", "Scenes", "Bulbs"],
+        tabSegment = NSSegmentedControl(labels: ["Presets", "Scenes", "Bulbs"],
                                         trackingMode: .selectOne,
                                         target: self, action: #selector(tabChanged(_:)))
         tabSegment.frame = NSRect(x: 240, y: 460, width: 396, height: 26)
