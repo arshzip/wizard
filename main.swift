@@ -310,11 +310,20 @@ func darkened(_ color: NSColor, amount: CGFloat) -> NSColor {
                    blue: c.blueComponent * (1 - amount), alpha: 1)
 }
 
+/// Build an NSColor from stored 0–255 RGB values in the same device RGB space
+/// `storedParams` writes. Reconstructing in a different space (e.g. calibrated
+/// RGB) makes every save → reload → save roundtrip gamma-shift the color,
+/// brightening it a little more each time.
+func rgb255(_ r: Int, _ g: Int, _ b: Int) -> NSColor {
+    NSColor(colorSpace: NSColorSpace.deviceRGB,
+            components: [CGFloat(r) / 255, CGFloat(g) / 255, CGFloat(b) / 255, 1],
+            count: 4)
+}
+
 /// Color for a row's swatch dot / bulb preview.
 func swatchColor(for params: [String: Any]) -> NSColor {
     if let r = params["r"] as? Int, let g = params["g"] as? Int, let b = params["b"] as? Int {
-        return NSColor(calibratedRed: CGFloat(r) / 255, green: CGFloat(g) / 255,
-                       blue: CGFloat(b) / 255, alpha: 1)
+        return rgb255(r, g, b)
     }
     if let sc = params["sceneId"] as? Int, let preset = scenePreset(id: sc) {
         return preset.color
@@ -1545,8 +1554,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
     func rgbColor(from params: [String: Any]) -> NSColor? {
         guard let r = params["r"] as? Int, let g = params["g"] as? Int, let b = params["b"] as? Int
         else { return nil }
-        return NSColor(calibratedRed: CGFloat(r) / 255, green: CGFloat(g) / 255,
-                       blue: CGFloat(b) / 255, alpha: 1)
+        return rgb255(r, g, b)
     }
 
     func selectWorking(_ w: WorkingState) {
