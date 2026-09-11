@@ -1074,6 +1074,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
     var kindSeg: NSSegmentedControl!
     var tempSlider: NSSlider!
     var tempLabel: NSTextField!
+    var tempTitleLabel: NSTextField!
     var colorWell: NSColorWell!
     var brightSlider: NSSlider!
     var brightLabel: NSTextField!
@@ -1280,14 +1281,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         kindSeg.frame = NSRect(x: 24, y: 122, width: 190, height: 24)
         v.addSubview(kindSeg)
 
+        tempTitleLabel = NSTextField(labelWithString: "Temperature")
+        tempTitleLabel.font = .systemFont(ofSize: 11)
+        tempTitleLabel.textColor = .secondaryLabelColor
+        tempTitleLabel.frame = NSRect(x: 24, y: 95, width: 70, height: 14)
+        v.addSubview(tempTitleLabel)
         tempSlider = NSSlider(value: 3500, minValue: 2200, maxValue: 6500,
                               target: self, action: #selector(tempSliderChanged(_:)))
-        tempSlider.frame = NSRect(x: 24, y: 90, width: 230, height: 24)
+        tempSlider.frame = NSRect(x: 98, y: 90, width: 214, height: 24)
         v.addSubview(tempSlider)
         tempLabel = NSTextField(labelWithString: "3500 K")
         tempLabel.font = .systemFont(ofSize: 11)
         tempLabel.alignment = .right
-        tempLabel.frame = NSRect(x: 260, y: 95, width: 100, height: 14)
+        tempLabel.frame = NSRect(x: 318, y: 95, width: 54, height: 14)
         v.addSubview(tempLabel)
 
         colorWell = NSColorWell(frame: NSRect(x: 24, y: 88, width: 72, height: 32))
@@ -1613,6 +1619,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         let kind = working?.kind ?? 0
         tempSlider?.isHidden = kind != 0
         tempLabel?.isHidden = kind != 0
+        tempTitleLabel?.isHidden = kind != 0
         colorWell?.isHidden = kind != 1
         scenePopup?.isHidden = kind != 2
         kindSeg?.isHidden = working == nil
