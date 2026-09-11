@@ -1,0 +1,44 @@
+# WiZard
+
+WiZard is an open-source macOS menu bar app for [WiZ](https://www.wizconnected.com/) bulbs. It talks to your bulbs over UDP on your local network. No cloud, no account.
+
+## Features
+- Presets in your menu bar: Cool, Warm, Nightlight, plus any preset you create
+- White temperature (2200 to 6500 K), RGB colors, and all 36 built-in WiZ scenes
+- Live preview: edits in the preset editor show up on the bulb
+- Brightness slider that keeps your color or scene
+- Bulb discovery, renaming, and switching between multiple bulbs
+- One config file shared with the `w` CLI
+
+## Install
+You need macOS 12 or later and the Xcode Command Line Tools (`xcode-select --install`).
+
+```console
+git clone https://github.com/arshzip/wizard
+cd wizard
+./build.sh
+```
+
+The script compiles the app, signs it, and installs it to `/Applications`. Launch WiZard and it finds your bulb on the network.
+
+Some Command Line Tools versions ship a broken Swift module map. The build script detects it and applies a workaround, so you don't need sudo or a full Xcode install.
+
+## Usage
+Click the menu bar icon:
+- Pick a preset or drag the brightness slider
+- Save as new preset captures the current bulb state (it enables once the bulb shows a look you haven't saved)
+- Preferences (⌘,) opens the preset editor, the WiZ scene library, and bulb management
+
+## How it works
+WiZ bulbs listen for JSON on UDP port 38899. WiZard sends `getPilot` to read the state and `setPilot` to change it. Discovery sends a broadcast first, then sweeps the subnet if the broadcast gets dropped.
+
+Settings live in `~/.wizctl.json`. The `w` CLI in this repo reads and writes the same file, so you can script your bulbs:
+
+```console
+./w c    # cool white
+./w n    # night light
+./w o    # off
+```
+
+## License
+[MIT](LICENSE)
