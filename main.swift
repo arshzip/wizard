@@ -643,6 +643,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
     var header: HeaderView!
     var slider: NSSlider!
     var pctLabel: NSTextField!
+    var sliderItem: NSMenuItem!
+    var sliderSep: NSMenuItem!
     var saveAsItem: NSMenuItem!
 
     var cfg = loadConfig()
@@ -791,7 +793,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         let sliderItem = NSMenuItem()
         sliderItem.view = row
         menu.addItem(sliderItem)
-        menu.addItem(.separator())
+        self.sliderItem = sliderItem
+        sliderSep = NSMenuItem.separator()
+        menu.addItem(sliderSep)
 
         saveAsItem = NSMenuItem(title: "Save as new preset…",
                                 action: #selector(saveAsNewState), keyEquivalent: "")
@@ -891,6 +895,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         }
         header?.dot.color = dotColor
 
+        // Scenes always run at 100% — no brightness slider for them.
+        let isScene = currentId.flatMap { stateById($0) }?.params["sceneId"] != nil
+        sliderItem?.isHidden = isScene
+        sliderSep?.isHidden = isScene
         // "Save as new preset" only when the bulb shows a look that isn't
         // already saved — i.e. something actually changed (brightness, color, …).
         if let snap = captureSnapshot(from: lastPilot), !snapshotMatchesExisting(snap) {
